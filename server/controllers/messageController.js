@@ -3,7 +3,7 @@ import connectDB from "../configs/db.js";
 import OpenAI from "../configs/openai.js";
 import Chat from "../models/Chat.js";
 import User from "../models/User.js";
-import imageKit from "../configs/imagekit.js";
+import imagekit from "../configs/imagekit.js";
 /* -------------------------------
    🧠 TEXT MESSAGE CONTROLLER
 --------------------------------*/

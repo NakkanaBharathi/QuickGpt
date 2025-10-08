@@ -1,5 +1,7 @@
+// controllers/creditController.js
 import Transaction from "../models/Transaction.js";
 import Stripe from "stripe";
+import connectDB from "../configs/db.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -44,30 +46,31 @@ const plans = [
   },
 ];
 
-// ✅ API controller for getting all plans
+// ✅ Get all plans
 export const getPlans = async (req, res) => {
   try {
-    res.json({ success: true, plans });
+    res.status(200).json({ success: true, plans });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// ✅ API controller for purchasing a plan
+// ✅ Purchase a plan
 export const purchasePlan = async (req, res) => {
   try {
-    const { planId } = req.body;
-    const userId = req.user._id;
+    await connectDB(); // ensure DB is connected
 
-    // Find the plan
-    const plan = plans.find((plan) => plan._id === planId);
+    const { planId } = req.body;
+    const userId = req.user._id; // make sure req.user is set in your API handler
+
+    const plan = plans.find((p) => p._id === planId);
     if (!plan) {
-      return res.json({ success: false, message: "Invalid plan ID" });
+      return res.status(400).json({ success: false, message: "Invalid plan ID" });
     }
 
-    // Create new transaction
+    // Create a transaction
     const transaction = await Transaction.create({
-      userId: userId,
+      userId,
       planId: plan._id,
       amount: plan.price,
       credits: plan.credits,
@@ -76,16 +79,14 @@ export const purchasePlan = async (req, res) => {
 
     const { origin } = req.headers;
 
-    // Create Stripe Checkout session
+    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
           price_data: {
             currency: "usd",
             unit_amount: plan.price * 100,
-            product_data: {
-              name: plan.name,
-            },
+            product_data: { name: plan.name },
           },
           quantity: 1,
         },
@@ -97,15 +98,11 @@ export const purchasePlan = async (req, res) => {
         transactionId: transaction._id.toString(),
         appId: "quickgpt",
       },
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 15 minutes
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 30 minutes
     });
 
-    // ✅ Only return success + Stripe URL
-    res.json({
-      success: true,
-      url: session.url,
-    });
+    res.status(200).json({ success: true, url: session.url });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };

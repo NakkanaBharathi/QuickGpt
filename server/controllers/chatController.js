@@ -1,9 +1,13 @@
-import Chat from "../models/Chat.js"; // ✅ Import Chat model
+// controllers/chatController.js
+import Chat from "../models/Chat.js";
+import connectDB from "../configs/db.js";
 
-// API Controller for creating a new chat
+// Create a new chat
 export const createChat = async (req, res) => {
   try {
-    const userId = req.user._id;
+    await connectDB(); // ensure DB is connected
+
+    const userId = req.user._id; // make sure req.user is set in your API handler
     const chatData = {
       userId,
       messages: [],
@@ -13,33 +17,37 @@ export const createChat = async (req, res) => {
 
     await Chat.create(chatData);
 
-    res.json({ success: true, message: "Chat is created" }); // ✅ corrected response
+    res.status(200).json({ success: true, message: "Chat is created" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// API Controller for getting all chats
+// Get all chats
 export const getChats = async (req, res) => {
   try {
+    await connectDB();
+
     const userId = req.user._id;
     const chats = await Chat.find({ userId }).sort({ updatedAt: -1 });
 
-    res.json({ success: true, chats }); // ✅ corrected spelling
+    res.status(200).json({ success: true, chats });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// API Controller for deleting a chat
+// Delete a chat
 export const deleteChat = async (req, res) => {
   try {
+    await connectDB();
+
     const userId = req.user._id;
     const { chatId } = req.body;
 
-    await Chat.deleteOne({ _id: chatId, userId }); // ✅ corrected deleteOne
+    await Chat.deleteOne({ _id: chatId, userId });
 
-    res.json({ success: true, message: "Chat deleted" });
+    res.status(200).json({ success: true, message: "Chat deleted" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

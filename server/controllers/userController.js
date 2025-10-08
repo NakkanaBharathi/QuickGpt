@@ -1,8 +1,9 @@
-// userController.js
+// controllers/userController.js
 import Chat from "../models/Chat.js";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import connectDB from "../configs/db.js";
 
 // Generate JWT
 const generateToken = (id) => {
@@ -11,15 +12,21 @@ const generateToken = (id) => {
 
 // REGISTER
 export const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
   try {
+    await connectDB();
+
+    const { name, email, password } = req.body;
+
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ success: false, message: "User already exists" });
     }
 
-    const user = await User.create({ name, email, password }); // ❌ no manual hash
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = await User.create({ name, email, password: hashedPassword });
 
     const token = generateToken(user._id);
     return res.status(201).json({ success: true, token });
@@ -30,12 +37,14 @@ export const registerUser = async (req, res) => {
 
 // LOGIN
 export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
   try {
+    await connectDB();
+
+    const { email, password } = req.body;
     const user = await User.findOne({ email });
     if (user && (await bcrypt.compare(password, user.password))) {
       const token = generateToken(user._id);
-      return res.json({ success: true, token });
+      return res.status(200).json({ success: true, token });
     }
 
     return res.status(400).json({ success: false, message: "Invalid email or password" });
@@ -47,36 +56,39 @@ export const loginUser = async (req, res) => {
 // GET USER
 export const getUser = async (req, res) => {
   try {
-    const user = req.user;
-    return res.json({ success: true, user });
+    await connectDB();
+
+    const user = req.user; // make sure req.user is populated via token verification
+    return res.status(200).json({ success: true, user });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
-}
-//API TO GET PUBLISHED IMAGES
+};
+
+// GET PUBLISHED IMAGES
 export const getPublishedImages = async (req, res) => {
-  try{
-    const publishedImageMessages=await Chat.aggregate([
-      {$unwind:"messages"},
+  try {
+    await connectDB();
+
+    const publishedImageMessages = await Chat.aggregate([
+      { $unwind: "$messages" },
       {
-        $match:{"messages.isImage":true,
-          "messages.isPublished":true
-        }
-          
+        $match: {
+          "messages.isImage": true,
+          "messages.isPublished": true,
+        },
       },
       {
-        $project:{
-          _id:0,
-          imageUrl:"$messages.content",
-          userName:"$userName",
+        $project: {
+          _id: 0,
+          imageUrl: "$messages.content",
+          userName: "$userName",
+        },
+      },
+    ]);
 
-        }
-      }
-    ])
-    res.json({success:true,images:publishedImageMessages})
-    
-  }catch(error){
-    return res.json({success:false,message:error.message})
-
+    res.status(200).json({ success: true, images: publishedImageMessages });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
-}
+};

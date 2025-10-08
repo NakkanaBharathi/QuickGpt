@@ -1,20 +1,30 @@
+// middlewares/auth.js
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import connectDB from "../configs/db.js";
 
-export const protect=async(req,res,next)=>{
-    let token=req.headers.authorization;
-    try{
-        const decoded=jwt.verify(token,process.env.JWT_SECRET)
-       const userId=decoded.id;
-       const user=await User.findById(userId)
-       if(!user)
-       {
-        return  res.json({success:false,message:"Not authorized,user not found"})
-       }
-         req.user=user;
-        next();
-    }catch(error){
-      res.status(401).json({message:"Not authorized token failed"})
+// Protect function for Vercel API routes
+export const protect = (handler) => {
+  return async (req, res) => {
+    await connectDB();
 
+    try {
+      const token = req.headers.authorization;
+      if (!token) {
+        return res.status(401).json({ success: false, message: "Not authorized, no token" });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id);
+      if (!user) {
+        return res.status(401).json({ success: false, message: "Not authorized, user not found" });
+      }
+
+      req.user = user;
+      // Call the actual API handler
+      return handler(req, res);
+    } catch (error) {
+      return res.status(401).json({ success: false, message: "Not authorized, token failed" });
     }
-}
+  };
+};

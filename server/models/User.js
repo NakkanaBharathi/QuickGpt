@@ -1,5 +1,4 @@
 // models/User.js
-
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -18,5 +17,6 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-const User = mongoose.model("User", userSchema);
+// Prevent model overwrite errors in serverless
+const User = mongoose.models.User || mongoose.model("User", userSchema);
 export default User;
